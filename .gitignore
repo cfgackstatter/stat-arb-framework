@@ -1,0 +1,74 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Virtual environment
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# VS Code settings
+.vscode/
+
+# Mac/Windows files
+.DS_Store
+Thumbs.db
+
+# PyCharm project files
+.idea/
+
+# Data files
+*.csv
+*.h5
+*.hdf5
+*.sqlite3
+*.db
+*.data
+*.zip
+
+# Results and figures
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+*.log
+
+# Downloaded models
+*.pkl
+*.joblib
+
+# Config and secret files
+config.json
+settings.json
+secrets.json
+
+# Test and temp files
+*.tmp
+*.bak
+*.swp
+~$*
+
+# Ignore any user or experimental scripts
+*.old.*
+*.bak.*
+*_test.py
+test_*.py
+
+# Output folders
+output/
+outputs/
+results/
+logs/
+plots/
