@@ -8,7 +8,7 @@ from src.ou_process import calculate_s_score
 
 def calculate_all_s_scores(residuals, ou_params, tradable_stocks):
     """
-    Calculate S-scores for all tradable stocks.
+    Calculate S-scores for all tradable stocks, with m demeaned across stocks.
     
     Parameters:
     -----------
@@ -24,12 +24,16 @@ def calculate_all_s_scores(residuals, ou_params, tradable_stocks):
     DataFrame
         S-scores for tradable stocks
     """
+    # Demean m across tradable stocks
+    m_vec = np.array([ou_params[stock]['m'] for stock in tradable_stocks])
+    m_mean = np.mean(m_vec)
+    for stock in tradable_stocks:
+        ou_params[stock]['m'] -= m_mean
+
     s_scores = pd.DataFrame(index=residuals.index)
-    
     for stock in tradable_stocks:
         m = ou_params[stock]['m']
         sigma_eq = ou_params[stock]['sigma_eq']
-        
         s_scores[stock] = calculate_s_score(residuals[stock], m, sigma_eq)
     
     return s_scores
