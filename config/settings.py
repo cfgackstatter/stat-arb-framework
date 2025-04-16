@@ -23,7 +23,7 @@ SYMBOLS = ['MMM', 'ABT', 'ANF', 'ACN', 'ADBE', 'AMD', 'AES', 'AFL', 'A', 'APD',
            'HAS', 'HP', 'HES', 'HPQ', 'HD', 'HON', 'HRL', 'HST', 'HUM', 'HBAN',
            'ITW']
 START_DATE = '2024-01-01'
-END_DATE = '2025-01-10'  # Set to None to use current date
+END_DATE = '2025-01-31'  # Set to None to use current date
 
 # Strategy parameters
 PCA_WINDOW = 252       # 1 year of trading days for PCA calculation

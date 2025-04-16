@@ -4,7 +4,6 @@ Signal generation and portfolio construction.
 
 import pandas as pd
 import numpy as np
-from src.ou_process import calculate_s_score
 
 def calculate_all_s_scores(residuals, ou_params, tradable_stocks):
     """
@@ -30,13 +29,16 @@ def calculate_all_s_scores(residuals, ou_params, tradable_stocks):
     for stock in tradable_stocks:
         ou_params[stock]['m'] -= m_mean
 
-    s_scores = pd.DataFrame(index=residuals.index)
+    # Precompute all S-scores in a dictionary
+    s_score_data = {}
     for stock in tradable_stocks:
         m = ou_params[stock]['m']
         sigma_eq = ou_params[stock]['sigma_eq']
-        s_scores[stock] = calculate_s_score(residuals[stock], m, sigma_eq)
+        s_score = - m / sigma_eq
+
+        s_score_data[stock] = s_score
     
-    return s_scores
+    return pd.DataFrame(s_score_data, index=residuals.index)
 
 def generate_signals(s_scores, s_threshold):
     """

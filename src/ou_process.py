@@ -41,7 +41,7 @@ def fit_ou_process(series):
     a, b = model.params  # a is intercept, b is slope
 
     # Check validity
-    if 0 < b < 1:# and model.pvalues[1] < 0.05:
+    if 0 < b < 1 and model.pvalues[1] < 0.05:
         valid = True
     
     if valid:
@@ -54,30 +54,6 @@ def fit_ou_process(series):
     else:
         return None, None, None
     
-def calculate_s_score(series, m, sigma_eq):
-    """
-    Calculate S-score based on OU parameters.
-    
-    Parameters:
-    -----------
-    series : Series
-        Time series
-    kappa : float
-        Mean reversion speed
-    m : float
-        Long-term mean
-    sigma_eq : float
-        Equilibrium volatility
-        
-    Returns:
-    --------
-    Series
-        S-scores
-    """
-    # S-score is the normalized deviation from mean
-    s_score = (series - m) / sigma_eq
-    
-    return s_score
 
 def get_tradable_stocks(residuals, kappa_threshold):
     """
@@ -101,7 +77,7 @@ def get_tradable_stocks(residuals, kappa_threshold):
     tradable_stocks = []
     
     for stock in residuals.columns:
-        kappa, m, sigma_eq = fit_ou_process(residuals[stock])
+        kappa, m, sigma_eq = fit_ou_process(residuals[stock].cumsum())
         
         if kappa is not None and kappa > kappa_threshold:
             ou_params[stock] = {'kappa': kappa, 'm': m, 'sigma_eq': sigma_eq}
