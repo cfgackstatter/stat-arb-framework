@@ -1,96 +1,208 @@
 """
 Signal generation and portfolio construction.
+
+This module handles the generation of trading signals from S-scores
+and the construction of portfolios based on statistical arbitrage principles.
 """
 
-import pandas as pd
+from typing import Dict, List, Optional, Tuple, Union, Any
+import logging
 import numpy as np
+import pandas as pd
+import statsmodels.api as sm
 
-def calculate_all_s_scores(residuals, ou_params, tradable_stocks):
+# Configure logger
+logger = logging.getLogger(__name__)
+
+
+def calculate_all_s_scores(
+        residuals: pd.DataFrame,
+        ou_params: Dict[str, Dict[str, float]],
+        tradable_stocks: List[str],
+        demean: bool = True
+) -> pd.DataFrame:
     """
-    Calculate S-scores for all tradable stocks, with m demeaned across stocks.
+    Calculate S-scores for all tradable stocks with optional demeaning.
     
-    Parameters:
-    -----------
-    residuals : DataFrame
-        Residuals for each stock
-    ou_params : dict
-        Dictionary of OU parameters
-    tradable_stocks : list
-        List of tradable stock symbols
+    Args:
+        residuals: DataFrame of residuals for each stock
+        ou_params: Dictionary of OU parameters
+        tradable_stocks: List of tradable stock symbols
+        demean: Whether to demean the long-term means across stocks
         
     Returns:
-    --------
-    DataFrame
-        S-scores for tradable stocks
+        DataFrame of S-scores for tradable stocks
     """
-    # Demean m across tradable stocks
-    m_vec = np.array([ou_params[stock]['m'] for stock in tradable_stocks])
-    m_mean = np.mean(m_vec)
+    if not tradable_stocks:
+        logger.warning("No tradable stocks provided for S-score calculation")
+        return pd.DataFrame()
+    
+    # Demean m across tradable stocks if requested
+    if demean and tradable_stocks:
+        m_vec = np.array([ou_params[stock]['m'] for stock in tradable_stocks])
+        m_mean = np.nanmean(m_vec)  # Using nanmean to handle any NaN values
+        logger.debug(f"Demeaning long-term means, average: {m_mean:.6f}")
+
     for stock in tradable_stocks:
         ou_params[stock]['m'] -= m_mean
 
-    # Precompute all S-scores in a dictionary
-    s_score_data = {}
+    # Prepare a dataframe for all S-scores
+    s_scores = pd.DataFrame(index=residuals.index)
+
+    # Calculate all S-scores in a vectorized manner
     for stock in tradable_stocks:
-        m = ou_params[stock]['m']
-        sigma_eq = ou_params[stock]['sigma_eq']
-        s_score = - m / sigma_eq
+        try:
+            m = ou_params[stock]['m']
+            sigma_eq = ou_params[stock]['sigma_eq']
 
-        s_score_data[stock] = s_score
+            # Calculate S-score = (X - m) / sigma_eq
+            # Using cumulative sum of residuals to match OU process fitting
+            cum_residuals = residuals[stock].cumsum()
+            s_scores[stock] = (cum_residuals - m) / sigma_eq
+
+        except Exception as e:
+            logger.error(f"Error calculating S-score for {stock}: {str(e)}")
     
-    return pd.DataFrame(s_score_data, index=residuals.index)
+    return s_scores
 
-def generate_signals(s_scores, s_threshold):
+
+def generate_signals(
+    s_scores: pd.DataFrame,
+    entry_threshold: float,
+    prev_signals: Optional[pd.DataFrame] = None,
+    exit_thresholds: Optional[Dict[str, float]] = None
+) -> pd.DataFrame:
     """
-    Generate trading signals based on S-scores.
+    Generate trading signals based on S-scores with exit thresholds.
     
-    Parameters:
-    -----------
-    s_scores : DataFrame
-        S-scores for tradable stocks
-    s_threshold : float
-        Threshold for generating signals
+    Args:
+        s_scores: DataFrame of S-scores for tradable stocks
+        entry_threshold: Threshold for generating entry signals
+        prev_signals: Previous day's signals (optional)
+        exit_thresholds: Dict with 'long_exit' and 'short_exit' thresholds
         
     Returns:
-    --------
-    DataFrame
-        Trading signals (-1 for short, 0 for no position, 1 for long)
+        DataFrame of trading signals (-1 for short, 0 for no position, 1 for long)
     """
+    # Initialize signals dataframe with zeros
     signals = pd.DataFrame(0, index=s_scores.index, columns=s_scores.columns)
     
-    # Long signal when S-score is below negative threshold
-    signals[s_scores < -s_threshold] = 1
-    
-    # Short signal when S-score is above positive threshold
-    signals[s_scores > s_threshold] = -1
+    # Generate entry signals
+    signals[s_scores < -entry_threshold] = 1    # Long
+    signals[s_scores > entry_threshold] = -1    # Short
+
+    # Apply signal continuity and exit conditions based on previous signals
+    if prev_signals is not None and not prev_signals.empty:
+        for col in s_scores.columns:
+            if col in prev_signals.columns:
+                # Get previous signal
+                prev_signal = prev_signals.iloc[0].get(col, 0)
+
+                # If no new signal but had a position previously
+                if signals.iloc[0, signals.columns.get_loc(col)] == 0 and prev_signal != 0:
+                    # Check exit conditions
+                    s_score = s_scores.iloc[0].get(col, 0)
+
+                    # For long positions
+                    if prev_signal > 0:
+                        if s_score <= exit_thresholds['long_exit']:
+                            # Continue long position
+                            signals.iloc[0, signals.columns.get_loc(col)] = prev_signal
+                        # Otherwise leave as 0 (exit position)
+
+                    # For short positions
+                    elif prev_signal < 0:
+                        if s_score >= exit_thresholds['short_exit']:
+                            # Continue short position
+                            signals.iloc[0, signals.columns.get_loc(col)] = prev_signal
+                        # Otherwise leave as 0 (exit position)
     
     return signals
 
-def calculate_portfolio_weights(pca, K, stocks):
+
+def construct_beta_matrix(
+    factor_models: Dict[str, Any], 
+    factor_names: Optional[List[str]] = None
+) -> pd.DataFrame:
     """
-    Calculate portfolio weights based on PCA loadings.
+    Construct beta matrix from regression models.
     
-    Parameters:
-    -----------
-    pca : PCA object
-        Fitted PCA object
-    K : int
-        Number of components kept for systematic factors
-    stocks : list
-        List of stock symbols
+    Args:
+        factor_models: Dictionary of OLS models {stock: model}
+        factor_names: Optional list of factor names for columns
         
     Returns:
-    --------
-    Series
-        Portfolio weights for each stock
+        DataFrame of beta coefficients (stocks x factors)
     """
-    # Sum loadings from components after K
-    portfolio_weights = np.zeros(len(stocks))
+    if not factor_models:
+        logger.warning("No factor models provided for beta matrix construction")
+        return pd.DataFrame()
     
-    for i in range(K, pca.n_components_):
-        portfolio_weights += pca.components_[i]
+    # Extract beta coefficients (excluding intercept) for each stock
+    beta_data = {}
+    for stock, model in factor_models.items():
+        try:
+            # Extract coefficients excluding intercept
+            betas = model.params.drop('const')
+            beta_data[stock] = betas
+        except Exception as e:
+            logger.warning(f"Error extracting betas for {stock}: {str(e)}")
+
+    # Convert to DataFrame
+    beta_matrix = pd.DataFrame(beta_data).T
     
-    # Normalize weights to sum to 1
-    portfolio_weights = portfolio_weights / np.sum(np.abs(portfolio_weights))
+    # Set factor names if provided
+    if factor_names is not None and len(factor_names) == beta_matrix.shape[1]:
+        beta_matrix.columns = factor_names
     
-    return pd.Series(portfolio_weights, index=stocks)
+    return beta_matrix
+
+
+def calculate_dollar_neutral_portfolio(
+    signal: float,
+    stock: str,
+    beta_matrix: pd.DataFrame,
+    factor_weights: pd.DataFrame,
+    k: int
+) -> pd.Series:
+    """
+    Calculate dollar-neutral portfolio positions for a stock with a signal.
+    
+    Args:
+        signal: Trading signal (-1, 0, or 1)
+        stock: Stock symbol
+        beta_matrix: Matrix of factor betas
+        factor_weights: Matrix of factor weights
+        k: Number of factors to hedge
+        
+    Returns:
+        Series of positions for all stocks
+    """
+    if signal == 0:
+        return pd.Series(0, index=beta_matrix.index)
+        
+    try:
+        # Get betas for the first k factors
+        stock_betas = beta_matrix.loc[stock].iloc[:k].values
+        
+        # Get factor weights for the first k factors
+        factor_weights_subset = factor_weights.iloc[:k]
+        
+        # Calculate hedge positions
+        # 1. Long/short $1 of the stock
+        positions = pd.Series(0, index=beta_matrix.index)
+        positions[stock] = signal
+        
+        # 2. Calculate and apply factor hedges
+        hedge = signal * stock_betas @ factor_weights_subset
+        
+        # Offset only the first k factor exposures
+        for i, col in enumerate(factor_weights_subset.columns):
+            if col in positions.index and i < len(stock_betas):
+                positions[col] -= hedge[i]
+                
+        return positions
+        
+    except Exception as e:
+        logger.error(f"Error calculating portfolio for {stock}: {str(e)}")
+        return pd.Series(0, index=beta_matrix.index)
