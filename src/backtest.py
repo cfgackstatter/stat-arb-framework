@@ -192,9 +192,6 @@ class StatArbBacktester:
             factor_weights = get_factor_weights(pca, train_returns.columns, train_returns.std())
             factor_returns = calculate_factor_returns(ou_estimation_returns, factor_weights)
             
-            # Create factor names for clarity
-            factor_names = [f"PC{i+1}" for i in range(K)]
-            
             # Fit regression for each stock to get residuals
             residuals = pd.DataFrame(index=ou_estimation_returns.index, columns=ou_estimation_returns.columns)
             factor_models = {}
