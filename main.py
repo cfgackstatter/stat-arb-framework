@@ -20,14 +20,21 @@ from utils.helpers import print_pca_variance, plot_pca_variance
 
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('stat_arb.log'),
-        logging.StreamHandler()
-    ]
-)
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler('stat_arb.log')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(log_formatter)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+root_logger.handlers.clear()
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
 logger = logging.getLogger(__name__)
 
 
@@ -147,6 +154,16 @@ def main():
     logger.info(f"Maximum Drawdown: {metrics['max_drawdown']:.2%}")
     logger.info(f"Win Rate: {metrics['win_rate']:.2%}")
     logger.info(f"Profit Factor: {metrics.get('profit_factor', 0):.2f}")
+
+    print("\nPerformance Metrics:")
+    print(f"Total Return: {metrics['total_return']:.2%}")
+    print(f"Annualized Return: {metrics['annualized_return']:.2%}")
+    print(f"Annualized Volatility: {metrics['annualized_volatility']:.2%}")
+    print(f"Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+    print(f"Calmar Ratio: {metrics.get('calmar_ratio', 0):.2f}")
+    print(f"Maximum Drawdown: {metrics['max_drawdown']:.2%}")
+    print(f"Win Rate: {metrics['win_rate']:.2%}")
+    print(f"Profit Factor: {metrics.get('profit_factor', 0):.2f}")
     
     # Save metrics to file
     pd.Series(metrics).to_csv("results/performance_metrics.csv")
