@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from src.pca_model import perform_pca, get_factor_weights, calculate_factor_returns, get_optimal_components
 from src.ou_process import get_tradable_stocks
-from src.signals import calculate_all_s_scores, generate_signals, construct_beta_matrix, calculate_dollar_neutral_portfolio
+from src.signals import calculate_all_s_scores, generate_signals, construct_beta_matrix
 
 # Configure logger
 logger = logging.getLogger(__name__)
