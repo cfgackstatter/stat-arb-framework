@@ -43,26 +43,19 @@ def calculate_all_s_scores(
         m_mean = np.nanmean(m_vec)  # Using nanmean to handle any NaN values
         logger.debug(f"Demeaning long-term means, average: {m_mean:.6f}")
 
-    for stock in tradable_stocks:
-        ou_params[stock]['m'] -= m_mean
-
-    # Prepare a dataframe for all S-scores
-    s_scores = pd.DataFrame(index=residuals.index)
+        for stock in tradable_stocks:
+            ou_params[stock]['m'] -= m_mean
 
     # Calculate all S-scores in a vectorized manner
-    for stock in tradable_stocks:
-        try:
-            m = ou_params[stock]['m']
-            sigma_eq = ou_params[stock]['sigma_eq']
-
-            # Calculate S-score = (X - m) / sigma_eq
-            # Using cumulative sum of residuals to match OU process fitting
-            cum_residuals = residuals[stock].cumsum()
-            s_scores[stock] = (cum_residuals - m) / sigma_eq
-
-        except Exception as e:
-            logger.error(f"Error calculating S-score for {stock}: {str(e)}")
+    stock_params = pd.DataFrame({stock: {'m': ou_params[stock]['m'], 'sigma_eq': ou_params[stock]['sigma_eq']} 
+                                for stock in tradable_stocks}).T
     
+    # Using cumulative sum of residuals to match OU process fitting
+    cum_residuals = residuals[tradable_stocks].cumsum()
+
+    # Calculate S-score = (X - m) / sigma_eq
+    s_scores = (cum_residuals - stock_params['m'].values) / stock_params['sigma_eq'].values    
+
     return s_scores
 
 

@@ -18,7 +18,7 @@ SYMBOLS: List[str] = [
 
 # Time period settings
 START_DATE: str = '2024-01-01'
-END_DATE: Optional[str] = '2025-03-31'  # Set to None to use current date
+END_DATE: Optional[str] = '2025-01-31'  # Set to None to use current date
 
 # Model parameters
 PCA_WINDOW: int = 252       # 1 year of trading days for PCA calculation
