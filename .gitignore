@@ -1,16 +1,15 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook
 .ipynb_checkpoints
+notebooks/
 
-# Virtual environment
-.env/
+# Virtual environments
+.env
 .venv/
 env/
 venv/
@@ -18,57 +17,37 @@ ENV/
 env.bak/
 venv.bak/
 
-# VS Code settings
+# IDE settings
 .vscode/
+.idea/
 
-# Mac/Windows files
+# OS files
 .DS_Store
 Thumbs.db
 
-# PyCharm project files
-.idea/
+# Project-specific output directories
+plots/
+results/
+data_cache/
 
-# Data files
-*.csv
+# Model files
+*.pkl
+*.joblib
+
+# Data files (project-specific)
 *.h5
 *.hdf5
 *.sqlite3
 *.db
-*.data
-*.zip
 
-# Results and figures
-*.png
-*.jpg
-*.jpeg
-*.svg
-*.pdf
-*.log
-
-# Downloaded models
-*.pkl
-*.joblib
-
-# Config and secret files
-config.json
-settings.json
-secrets.json
-
-# Test and temp files
+# Temporary files
 *.tmp
 *.bak
 *.swp
 ~$*
+*.log
 
-# Ignore any user or experimental scripts
-*.old.*
-*.bak.*
-*_test.py
-test_*.py
-
-# Output folders
-output/
-outputs/
-results/
-logs/
-plots/
+# Secret/config files
+config.json
+secrets.json
+.env
