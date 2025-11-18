@@ -18,12 +18,12 @@ SYMBOLS: List[str] = [
 
 # Time period settings
 START_DATE: str = '2024-01-01'
-END_DATE: Optional[str] = '2025-01-31'  # Set to None to use current date
+END_DATE: Optional[str] = '2025-11-16'  # Set to None to use current date
 
 # Model parameters
 PCA_WINDOW: int = 252       # 1 year of trading days for PCA calculation
 OU_WINDOW: int = 60         # Days for OU process estimation
-N_COMPONENTS: int = None      # Number of principal components to extract
+N_COMPONENTS: Optional[int] = None      # Number of principal components to extract
 VARIANCE_THRESHOLD: float = 0.85  # Variance threshold for selecting factors
 KAPPA_THRESHOLD: float = 8.4     # Mean reversion threshold (252/30)
 
