@@ -144,7 +144,13 @@ def test_stationarity(series: pd.Series, significance: float = 0.05) -> Tuple[bo
     try:
         result = adfuller(series.dropna())
         p_value = result[1]
-        return p_value < significance, p_value
+        
+        # Explicitly convert to Python scalar types for type safety
+        p_value_float = float(p_value)
+        is_stationary = bool(p_value_float < significance)
+        
+        return is_stationary, p_value_float
+    
     except Exception as e:
         logger.warning(f"Error in stationarity test: {str(e)}")
         return False, 1.0
