@@ -482,7 +482,8 @@ def calculate_performance_metrics(strategy_returns: pd.Series) -> Dict[str, floa
     returns = strategy_returns.fillna(0)
     
     # Calculate metrics
-    total_return = (1 + returns).prod() - 1
+    prod_result: float = (1 + returns).prod()  # type: ignore[assignment]
+    total_return = prod_result - 1
     annualized_return = (1 + total_return) ** (252 / len(returns)) - 1
     annualized_volatility = returns.std() * np.sqrt(252)
     sharpe_ratio = annualized_return / annualized_volatility if annualized_volatility != 0 else 0
