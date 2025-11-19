@@ -26,8 +26,8 @@ def fetch_stock_data_cached(symbols_tuple, start_date, end_date, attempts=3):
     return _fetch_stock_data_impl(symbols, start_date, end_date, attempts)
 
 def _fetch_stock_data_impl(
-    symbols: List[str], 
-    start_date: str, 
+    symbols: List[str],
+    start_date: str,
     end_date: Optional[str] = None,
     attempts: int = 3
 ) -> pd.DataFrame:
@@ -40,16 +40,43 @@ def _fetch_stock_data_impl(
     # Retry logic for API failures
     for attempt in range(attempts):
         try:
-            prices_df = yf.download(
+            # Download data with auto_adjust=True (Close prices are already adjusted)
+            data = yf.download(
                 symbols, 
                 start=start_date, 
                 end=end_date, 
                 auto_adjust=True, 
                 progress=False
-            )['Close']
+            )
+            
+            # Type-safe handling: check if data is None or empty
+            if data is None or (isinstance(data, pd.DataFrame) and data.empty):
+                logger.warning("Empty or None dataframe returned from Yahoo Finance")
+                if attempt < attempts - 1:
+                    logger.info(f"Retrying ({attempt+1}/{attempts})...")
+                    continue
+                return pd.DataFrame()
+            
+            # Extract Close prices (already adjusted due to auto_adjust=True)
+            if isinstance(data, pd.DataFrame):
+                # For multiple symbols or when columns are MultiIndex
+                if 'Close' in data.columns:
+                    prices_df = data['Close']
+                elif isinstance(data.columns, pd.MultiIndex):
+                    # Handle MultiIndex columns
+                    prices_df = data['Close'] if 'Close' in data.columns.get_level_values(0) else data
+                else:
+                    prices_df = data
+                
+                # Ensure we return a DataFrame even for single symbol
+                if isinstance(prices_df, pd.Series):
+                    prices_df = prices_df.to_frame(name=symbols[0] if len(symbols) == 1 else 'Close')
+            else:
+                # If it's a Series (single symbol case), convert to DataFrame
+                prices_df = data.to_frame(name=symbols[0] if len(symbols) == 1 else 'Close')
             
             if prices_df.empty:
-                logger.warning("Empty dataframe returned from Yahoo Finance")
+                logger.warning("Extracted prices DataFrame is empty")
                 if attempt < attempts - 1:
                     logger.info(f"Retrying ({attempt+1}/{attempts})...")
                     continue
@@ -104,7 +131,7 @@ def fetch_stock_data(
     # Data preprocessing
     # Remove columns (stocks) with more than 10% missing values
     initial_columns = prices_df.shape[1]
-    prices_df = prices_df.dropna(axis=1, thresh=len(prices_df) * 0.9)
+    prices_df = prices_df.dropna(axis=1, thresh=int(len(prices_df) * 0.9))
     dropped_columns = initial_columns - prices_df.shape[1]
 
     if dropped_columns > 0:
@@ -120,7 +147,7 @@ def fetch_stock_data(
 
 
 def calculate_returns(
-    prices_df: pd.DataFrame, 
+    prices_df: pd.DataFrame,
     method: str = 'pct_change',
     winsorize_pct: Optional[float] = None
 ) -> pd.DataFrame:
@@ -131,7 +158,7 @@ def calculate_returns(
         prices_df: DataFrame of price data
         method: Method for calculating returns ('pct_change' or 'log')
         winsorize_pct: Percentile for winsorizing outliers (None to disable)
-        
+    
     Returns:
         DataFrame of daily returns
     """
@@ -140,7 +167,7 @@ def calculate_returns(
     
     # Calculate returns using specified method
     if method == 'log':
-        returns_df = np.log(prices_df / prices_df.shift(1))
+        returns_df = (prices_df / prices_df.shift(1)).apply(np.log)
     else:  # Default to pct_change
         returns_df = prices_df.pct_change()
 
@@ -151,13 +178,11 @@ def calculate_returns(
     if winsorize_pct is not None and 0 < winsorize_pct < 50:
         lower = returns_df.quantile(winsorize_pct/100)
         upper = returns_df.quantile(1 - winsorize_pct/100)
-        
         for col in returns_df.columns:
             returns_df[col] = returns_df[col].clip(lower=lower[col], upper=upper[col])
-        
         logger.info(f"Winsorized returns at {winsorize_pct}% level")
-
-    return prices_df.pct_change().dropna()
+    
+    return returns_df
 
 
 def save_data_to_cache(data: pd.DataFrame, filename: str, cache_dir: str = 'data_cache'):
