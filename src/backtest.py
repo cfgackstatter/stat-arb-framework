@@ -354,9 +354,10 @@ class StatArbBacktester:
         # Plot cumulative returns
         cumulative_returns = self.results['cumulative_returns']
         cumulative_returns.plot(ax=axes[0], color='blue', linewidth=2)
-        axes[0].set_title('Cumulative Strategy Returns', fontsize=14)
-        axes[0].set_ylabel('Cumulative Return', fontsize=12)
-        axes[0].grid(True, alpha=0.3)
+        axes[0].set_yscale('log')
+        axes[0].set_title('Cumulative Strategy Returns (Log Scale)', fontsize=14)
+        axes[0].set_ylabel('Cumulative Return (Log Scale)', fontsize=12)
+        axes[0].grid(True, alpha=0.3, which='both')
         
         # Add horizontal line at y=1 (initial capital)
         axes[0].axhline(y=1, color='black', linestyle='--', alpha=0.5)
