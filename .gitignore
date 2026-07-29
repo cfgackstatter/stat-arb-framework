@@ -25,7 +25,8 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
-# Project-specific output directories
+# Project output
+output/
 plots/
 results/
 data_cache/
